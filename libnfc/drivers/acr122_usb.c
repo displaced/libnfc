@@ -804,7 +804,7 @@ acr122_usb_init(nfc_device *pnd)
     0xFF, 0x00, 0x40, 0x50, 0x04, 0x05, 0x0A, 0x02, 0x00
   };
 
-  acr_usb_bulk_write(DRIVER_DATA(pnd), led_frame, sizeof(struct apdu_header), 1000);
+  acr122_usb_bulk_write(DRIVER_DATA(pnd), led_frame, sizeof(struct apdu_header), 1000);
   
 
   if ((res = pn53x_set_property_int(pnd, NP_TIMEOUT_COMMAND, 1000)) < 0)
