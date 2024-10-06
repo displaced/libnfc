@@ -206,6 +206,7 @@ const uint8_t acr122_usb_frame_template[] = {
 
 // APDUs instructions
 #define APDU_GetAdditionnalData 0xc0
+#define APDU_LedAndBuzzerControl 0xFF
 
 // Internal io struct
 const struct pn53x_io acr122_usb_io;
@@ -737,6 +738,13 @@ read:
 
   memcpy(pbtData, abtRxBuf + offset, len);
 
+  //res = acr122_usb_send_apdu(pnd, APDU_GetAdditionnalData, 0x00, 0x00, NULL, 0, abtRxBuf[11], abtRxBuf, sizeof(abtRxBuf));
+  const uint8_t led_control[] = {
+    0x01, 0x1, 0x06, 0x00
+  };
+
+  res = acr122_usb_send_apdu(pnd, 0x00, 0x40, 0xDD, led_control, sizeof(led_control), abtRxBuf[11], abtRxBuf, sizeof(abtRxBuf));
+
   return len;
 }
 
@@ -799,13 +807,6 @@ acr122_usb_init(nfc_device *pnd)
   if ((res = acr122_usb_bulk_read (DRIVER_DATA (pnd), abtRxBuf, sizeof (abtRxBuf), 1000)) < 0)
     return res;
   */
-
-  uint8_t led_frame[] = {
-    0xFF, 0x00, 0x40, 0x50, 0x04, 0x05, 0x0A, 0x02, 0x00
-  };
-
-  acr122_usb_bulk_write(DRIVER_DATA(pnd), led_frame, sizeof(struct apdu_header), 1000);
-  
 
   if ((res = pn53x_set_property_int(pnd, NP_TIMEOUT_COMMAND, 1000)) < 0)
     return res;
