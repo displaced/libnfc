@@ -215,6 +215,7 @@ const struct pn53x_io acr122_usb_io;
 static int acr122_usb_init(nfc_device *pnd);
 static int acr122_usb_ack(nfc_device *pnd);
 static int acr122_usb_send_apdu(nfc_device *pnd,
+                                const uint8_t class,
                                 const uint8_t ins, const uint8_t p1, const uint8_t p2, const uint8_t *const data, size_t data_len, const uint8_t le,
                                 uint8_t *out, const size_t out_size);
 
@@ -530,7 +531,7 @@ htole32(uint32_t u32)
 #endif /* !defined(htole32) */
 
 static int
-acr122_build_frame_from_apdu(nfc_device *pnd, const uint8_t ins, const uint8_t p1, const uint8_t p2, const uint8_t *data, const size_t data_len, const uint8_t le)
+acr122_build_frame_from_apdu(nfc_device *pnd, const uint8_t class, const uint8_t ins, const uint8_t p1, const uint8_t p2, const uint8_t *data, const size_t data_len, const uint8_t le)
 {
   if (data_len > sizeof(DRIVER_DATA(pnd)->apdu_frame.apdu_payload))
     return NFC_EINVARG;
@@ -538,6 +539,7 @@ acr122_build_frame_from_apdu(nfc_device *pnd, const uint8_t ins, const uint8_t p
     return NFC_EINVARG;
 
   DRIVER_DATA(pnd)->apdu_frame.ccid_header.dwLength = htole32(data_len + sizeof(struct apdu_header));
+  DRIVER_DATA(pnd)->apdu_frame.apdu_header.bClass = class;
   DRIVER_DATA(pnd)->apdu_frame.apdu_header.bIns = ins;
   DRIVER_DATA(pnd)->apdu_frame.apdu_header.bP1 = p1;
   DRIVER_DATA(pnd)->apdu_frame.apdu_header.bP2 = p2;
@@ -668,7 +670,7 @@ read:
       pnd->last_error = NFC_EIO;
       return pnd->last_error;
     }
-    res = acr122_usb_send_apdu(pnd, APDU_GetAdditionnalData, 0x00, 0x00, NULL, 0, abtRxBuf[11], abtRxBuf, sizeof(abtRxBuf));
+    res = acr122_usb_send_apdu(pnd, NULL, APDU_GetAdditionnalData, 0x00, 0x00, NULL, 0, abtRxBuf[11], abtRxBuf, sizeof(abtRxBuf));
     if (res == NFC_ETIMEOUT) {
       if (DRIVER_DATA(pnd)->abort_flag) {
         DRIVER_DATA(pnd)->abort_flag = false;
@@ -743,7 +745,7 @@ read:
     0x01, 0x1, 0x06, 0x00
   };
 
-  res = acr122_usb_send_apdu(pnd, 0x00, 0x40, 0xDD, led_control, sizeof(led_control), abtRxBuf[11], abtRxBuf, sizeof(abtRxBuf));
+  res = acr122_usb_send_apdu(pnd, 0xff, 0x00, 0x40, 0xDD, led_control, sizeof(led_control), abtRxBuf[11], abtRxBuf, sizeof(abtRxBuf));
 
   return len;
 }
@@ -766,11 +768,11 @@ acr122_usb_ack(nfc_device *pnd)
 
 static int
 acr122_usb_send_apdu(nfc_device *pnd,
-                     const uint8_t ins, const uint8_t p1, const uint8_t p2, const uint8_t *const data, size_t data_len, const uint8_t le,
+                     const uint8_t class, const uint8_t ins, const uint8_t p1, const uint8_t p2, const uint8_t *const data, size_t data_len, const uint8_t le,
                      uint8_t *out, const size_t out_size)
 {
   int res;
-  size_t frame_len = acr122_build_frame_from_apdu(pnd, ins, p1, p2, data, data_len, le);
+  size_t frame_len = acr122_build_frame_from_apdu(pnd, NULL, ins, p1, p2, data, data_len, le);
   if ((res = acr122_usb_bulk_write(DRIVER_DATA(pnd), (unsigned char *) & (DRIVER_DATA(pnd)->apdu_frame), frame_len, 1000)) < 0)
     return res;
   if ((res = acr122_usb_bulk_read(DRIVER_DATA(pnd), out, out_size, 1000)) < 0)
@@ -822,7 +824,7 @@ acr122_usb_init(nfc_device *pnd)
     return res;
 
   log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "%s", "ACR122 PICC Operating Parameters");
-  if ((res = acr122_usb_send_apdu(pnd, 0x00, 0x51, 0x00, NULL, 0, 0, abtRxBuf, sizeof(abtRxBuf))) < 0)
+  if ((res = acr122_usb_send_apdu(pnd, NULL, 0x00, 0x51, 0x00, NULL, 0, 0, abtRxBuf, sizeof(abtRxBuf))) < 0)
     return res;
 
   res = 0;
